@@ -1,14 +1,11 @@
 /* eslint-disable no-useless-escape */
-var htmlparser = require('htmlparser2');
-var extend = require('xtend');
-var quoteRegexp = require('lodash.escaperegexp');
-var cloneDeep = require('lodash.clonedeep');
-var mergeWith = require('lodash.mergewith');
-var isString = require('lodash.isstring');
-var isPlainObject = require('lodash.isplainobject');
-var srcset = require('srcset');
-var postcss = require('postcss');
-var url = require('url');
+import {escapeRegExp as quoteRegexp, cloneDeep, mergeWith, isString, isPlainObject} from 'lodash';
+
+const htmlparser = require('htmlparser2');
+const extend = require('xtend');
+const srcset = require('srcset');
+const postcss = require('postcss');
+const url = require('url');
 
 function each(obj, cb) {
   if (obj) {
@@ -42,8 +39,6 @@ function isEmptyObject(obj) {
   }
   return true;
 }
-
-module.exports = sanitizeHtml;
 
 // A valid attribute name.
 // We use a tolerant definition based on the set of strings defined by
@@ -644,3 +639,5 @@ sanitizeHtml.simpleTransform = function(newTagName, newAttribs, merge) {
     };
   };
 };
+
+export default sanitizeHtml;

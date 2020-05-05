@@ -3,7 +3,7 @@ var assert = require("assert");
 describe('sanitizeHtml', function() {
   var sanitizeHtml;
   it('should be successfully initialized', function() {
-    sanitizeHtml = require('../dist/sanitize-html.js');
+    sanitizeHtml = require('../dist/sanitize-html.js').default;
   });
   it('should pass through simple well-formed whitelisted markup', function() {
     assert.equal(sanitizeHtml('<div><p>Hello <b>there</b></p></div>'), '<div><p>Hello <b>there</b></p></div>');
