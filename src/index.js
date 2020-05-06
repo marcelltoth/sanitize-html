@@ -1,11 +1,9 @@
 /* eslint-disable no-useless-escape */
-import {escapeRegExp as quoteRegexp, cloneDeep, mergeWith, isString, isPlainObject} from 'lodash';
+import {escapeRegExp as quoteRegexp, isString, isPlainObject} from 'lodash';
 
-const htmlparser = require('htmlparser2');
+import { Parser } from 'htmlparser2/lib/Parser';
 const extend = require('xtend');
 const srcset = require('srcset');
-const postcss = require('postcss');
-const url = require('url');
 
 function each(obj, cb) {
   if (obj) {
@@ -148,7 +146,7 @@ function sanitizeHtml(html, options, _recursing) {
   var skipText = false;
   var skipTextDepth = 0;
 
-  var parser = new htmlparser.Parser({
+  var parser = new Parser({
     onopentag: function(name, attribs) {
       if (skipText) {
         skipTextDepth++;
@@ -157,7 +155,7 @@ function sanitizeHtml(html, options, _recursing) {
       var frame = new Frame(name, attribs);
       stack.push(frame);
 
-      var skip = false;
+      let skip = false;
       var hasText = !!frame.text;
       var transformedTag;
       if (has(transformTagsMap, name)) {
@@ -260,7 +258,7 @@ function sanitizeHtml(html, options, _recursing) {
               try {
                 // naughtyHref is in charge of whether protocol relative URLs
                 // are cool. We should just accept them
-                parsed = url.parse(value, false, true);
+                parsed = URL.parse(value, false, true);
                 var isRelativeUrl = parsed && parsed.host === null && parsed.protocol === null;
                 if (isRelativeUrl) {
                   // default value of allowIframeRelativeUrls is true unless allowIframeHostnames specified
@@ -314,20 +312,9 @@ function sanitizeHtml(html, options, _recursing) {
               }
             }
             if (a === 'style') {
-              try {
-                var abstractSyntaxTree = postcss.parse(name + " {" + value + "}");
-                var filteredAST = filterCss(abstractSyntaxTree, options.allowedStyles);
-
-                value = stringifyStyleAttributes(filteredAST);
-
-                if (value.length === 0) {
-                  delete frame.attribs[a];
-                  return;
-                }
-              } catch (e) {
-                delete frame.attribs[a];
-                return;
-              }
+              // disallow styles
+              delete frame.attribs[a];
+              return;
             }
             result += ' ' + a;
             if (value && value.length) {
@@ -493,91 +480,6 @@ function sanitizeHtml(html, options, _recursing) {
     }
 
     return !options.allowedSchemes || options.allowedSchemes.indexOf(scheme) === -1;
-  }
-
-  /**
-   * Filters user input css properties by whitelisted regex attributes.
-   *
-   * @param {object} abstractSyntaxTree  - Object representation of CSS attributes.
-   * @property {array[Declaration]} abstractSyntaxTree.nodes[0] - Each object cointains prop and value key, i.e { prop: 'color', value: 'red' }.
-   * @param {object} allowedStyles       - Keys are properties (i.e color), value is list of permitted regex rules (i.e /green/i).
-   * @return {object}                    - Abstract Syntax Tree with filtered style attributes.
-   */
-  function filterCss(abstractSyntaxTree, allowedStyles) {
-    if (!allowedStyles) {
-      return abstractSyntaxTree;
-    }
-
-    var filteredAST = cloneDeep(abstractSyntaxTree);
-    var astRules = abstractSyntaxTree.nodes[0];
-    var selectedRule;
-
-    // Merge global and tag-specific styles into new AST.
-    if (allowedStyles[astRules.selector] && allowedStyles['*']) {
-      selectedRule = mergeWith(
-        cloneDeep(allowedStyles[astRules.selector]),
-        allowedStyles['*'],
-        function(objValue, srcValue) {
-          if (Array.isArray(objValue)) {
-            return objValue.concat(srcValue);
-          }
-        }
-      );
-    } else {
-      selectedRule = allowedStyles[astRules.selector] || allowedStyles['*'];
-    }
-
-    if (selectedRule) {
-      filteredAST.nodes[0].nodes = astRules.nodes.reduce(filterDeclarations(selectedRule), []);
-    }
-
-    return filteredAST;
-  }
-
-  /**
-   * Extracts the style attribues from an AbstractSyntaxTree and formats those
-   * values in the inline style attribute format.
-   *
-   * @param  {AbstractSyntaxTree} filteredAST
-   * @return {string}             - Example: "color:yellow;text-align:center;font-family:helvetica;"
-   */
-  function stringifyStyleAttributes(filteredAST) {
-    return filteredAST.nodes[0].nodes
-      .reduce(function(extractedAttributes, attributeObject) {
-        extractedAttributes.push(
-          attributeObject.prop + ':' + attributeObject.value
-        );
-        return extractedAttributes;
-      }, [])
-      .join(';');
-  }
-
-  /**
-    * Filters the existing attributes for the given property. Discards any attributes
-    * which don't match the whitelist.
-    *
-    * @param  {object} selectedRule             - Example: { color: red, font-family: helvetica }
-    * @param  {array} allowedDeclarationsList   - List of declarations which pass whitelisting.
-    * @param  {object} attributeObject          - Object representing the current css property.
-    * @property {string} attributeObject.type   - Typically 'declaration'.
-    * @property {string} attributeObject.prop   - The CSS property, i.e 'color'.
-    * @property {string} attributeObject.value  - The corresponding value to the css property, i.e 'red'.
-    * @return {function}                        - When used in Array.reduce, will return an array of Declaration objects
-    */
-  function filterDeclarations(selectedRule) {
-    return function (allowedDeclarationsList, attributeObject) {
-      // If this property is whitelisted...
-      if (selectedRule.hasOwnProperty(attributeObject.prop)) {
-        var matchesRegex = selectedRule[attributeObject.prop].some(function(regularExpression) {
-          return regularExpression.test(attributeObject.value);
-        });
-
-        if (matchesRegex) {
-          allowedDeclarationsList.push(attributeObject);
-        }
-      }
-      return allowedDeclarationsList;
-    };
   }
 
   function filterClasses(classes, allowed) {
