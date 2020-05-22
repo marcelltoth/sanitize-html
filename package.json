@@ -8,7 +8,7 @@
     "dist/"
   ],
   "scripts": {
-    "build": "sl-scripts bundle",
+    "build": "tsc -p tsconfig.build.json",
     "prepublishOnly": "npm run minify",
     "test": "npx eslint src && mocha test/test.js"
   },
@@ -34,7 +34,9 @@
     "@babel/cli": "^7.8.4",
     "@babel/core": "^7.8.4",
     "@babel/preset-env": "^7.8.4",
+    "@rollup/plugin-commonjs": "^12.0.0",
     "@stoplight/scripts": "^8.2.0",
+    "@types/lodash": "^4.14.152",
     "eslint": "^4.0.0",
     "eslint-config-apostrophe": "^3.1.0",
     "eslint-config-standard": "^11.0.0",

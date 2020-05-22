@@ -1,9 +1,11 @@
+//@ts-nocheck
 /* eslint-disable no-useless-escape */
 import {escapeRegExp as quoteRegexp, isString, isPlainObject} from 'lodash';
 
-import { Parser } from 'htmlparser2/lib/Parser';
-const extend = require('xtend');
-const srcset = require('srcset');
+import { Parser } from 'htmlparser2';
+import extend from 'xtend';
+
+import srcset from "srcset";
 
 function each(obj, cb) {
   if (obj) {
