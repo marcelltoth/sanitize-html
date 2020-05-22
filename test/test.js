@@ -435,28 +435,6 @@ describe('sanitizeHtml', function() {
       ''
     );
   });
-  it('should allow transform on all tags using \'*\'', function () {
-    assert.equal(
-      sanitizeHtml(
-        '<p>Text</p>',
-        {
-          allowedTags: [ 'p' ],
-          allowedAttributes: {p: ['style']},
-          transformTags: {
-            '*': function (tagName, attribs) {
-              return {
-                tagName: tagName,
-                attribs: {
-                  style: 'text-align: center'
-                }
-              };
-            }
-          }
-        }
-      ),
-      '<p style="text-align:center">Text</p>'
-    );
-  });
   it('should not be faked out by double <', function() {
     assert.equal(
       sanitizeHtml('<<img src="javascript:evil"/>img src="javascript:evil"/>'
@@ -630,29 +608,6 @@ describe('sanitizeHtml', function() {
       '<span>alert(1)//&gt;</span>'
     );
   });
-  it('should sanitize styles correctly', function() {
-    var sanitizeString = '<p dir="ltr"><strong>beste</strong><em>testestes</em><s>testestset</s><u>testestest</u></p><ul dir="ltr"> <li><u>test</u></li></ul><blockquote dir="ltr"> <ol> <li><u>​test</u></li><li><u>test</u></li><li style="text-align: right"><u>test</u></li><li style="text-align: justify"><u>test</u></li></ol> <p><u><span style="color:#00FF00">test</span></u></p><p><span style="color:#00FF00"><span style="font-size:36px">TESTETESTESTES</span></span></p></blockquote>';
-    var expected = '<p dir="ltr"><strong>beste</strong><em>testestes</em><s>testestset</s><u>testestest</u></p><ul dir="ltr"> <li><u>test</u></li></ul><blockquote dir="ltr"> <ol> <li><u>​test</u></li><li><u>test</u></li><li style="text-align: right"><u>test</u></li><li style="text-align: justify"><u>test</u></li></ol> <p><u><span style="color:#00FF00">test</span></u></p><p><span style="color:#00FF00"><span style="font-size:36px">TESTETESTESTES</span></span></p></blockquote>';
-    assert.equal(
-      sanitizeHtml(sanitizeString, {
-        allowedTags: false,
-        allowedAttributes: {
-          '*': ["dir"],
-          p: ["dir", "style"],
-          li: ["style"],
-          span: ["style"]
-        },
-        allowedStyles: {
-          '*': {
-            // Matches hex
-            'color': [/\#(0x)?[0-9a-f]+/i],
-            'text-align': [/left/, /right/, /center/, /justify/, /initial/, /inherit/],
-            'font-size': [/36px/]
-          }
-        }
-      }).replace(/ /g, ''), expected.replace(/ /g, '')
-    );
-  });
   it('Should remove empty style tags', function() {
     assert.equal(
       sanitizeHtml("<span style=''></span>", {
@@ -660,42 +615,6 @@ describe('sanitizeHtml', function() {
         allowedAttributes: false
       }),
       "<span></span>"
-    );
-  });
-  it('Should remote invalid styles', function() {
-    assert.equal(
-      sanitizeHtml("<span style='color: blue; text-align: justify'></span>", {
-        allowedTags: false,
-        allowedAttributes: {
-          "span": ["style"]
-        },
-        allowedStyles: {
-          'span': {
-            "color": [/blue/],
-            "text-align": [/left/]
-          }
-        }
-      }), '<span style="color:blue"></span>'
-    );
-  });
-  it('Should allow a specific style from global', function() {
-    assert.equal(
-      sanitizeHtml("<span style='color: yellow; text-align: center; font-family: helvetica'></span>", {
-        allowedTags: false,
-        allowedAttributes: {
-          "span": ["style"]
-        },
-        allowedStyles: {
-          '*': {
-            "color": [/yellow/],
-            "text-align": [/center/]
-          },
-          'span': {
-            "color": [/green/],
-            "font-family": [/helvetica/]
-          }
-        }
-      }), '<span style="color:yellow;text-align:center;font-family:helvetica"></span>'
     );
   });
   it('Should allow hostnames in an iframe that are whitelisted', function() {
