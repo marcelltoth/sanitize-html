@@ -1,44 +1,10 @@
-//@ts-nocheck
 /* eslint-disable no-useless-escape */
-import {escapeRegExp as quoteRegexp, isString, isPlainObject} from 'lodash';
+//@ts-nocheck
+import {escapeRegExp as quoteRegexp, isString, isPlainObject, each, has, isEmpty, Dictionary} from 'lodash';
 
-import { Parser } from 'htmlparser2';
-import extend from 'xtend';
+import {Parser, ParserOptions} from 'htmlparser2';
 
 import srcset from "srcset";
-
-function each(obj, cb) {
-  if (obj) {
-    Object.keys(obj).forEach(function (key) {
-      cb(obj[key], key);
-    });
-  }
-}
-
-// Avoid false positives with .__proto__, .hasOwnProperty, etc.
-function has(obj, key) {
-  return ({}).hasOwnProperty.call(obj, key);
-}
-
-// Returns those elements of `a` for which `cb(a)` returns truthy
-function filter(a, cb) {
-  var n = [];
-  each(a, function(v) {
-    if (cb(v)) {
-      n.push(v);
-    }
-  });
-  return n;
-}
-
-function isEmptyObject(obj) {
-  for (var key in obj) {
-    if (has(obj, key)) {
-      return false;
-    }
-  }
-  return true;
-}
 
 // A valid attribute name.
 // We use a tolerant definition based on the set of strings defined by
@@ -53,14 +19,10 @@ function isEmptyObject(obj) {
 // attribute name state with an empty attribute name buffer.
 const VALID_HTML_ATTRIBUTE_NAME = /^[^\0\t\n\f\r /<=>]+$/;
 
-// Ignore the _recursing flag; it's there for recursive
-// invocation as a guard against this exploit:
-// https://github.com/fb55/htmlparser2/issues/105
-
-function sanitizeHtml(html, options, _recursing) {
-  var result = '';
+function sanitizeHtml(html: string, optionsInput: Partial<SanitizeHtmlOptions> = {}) {
+  let result = '';
   // Used for hot swapping the result variable with an empty string in order to "capture" the text written to it.
-  var tempResult = '';
+  let tempResult = '';
 
   function Frame(tag, attribs) {
     var that = this;
@@ -77,28 +39,16 @@ function sanitizeHtml(html, options, _recursing) {
     };
   }
 
-  if (!options) {
-    options = sanitizeHtml.defaults;
-    options.parser = htmlParserDefaults;
-  } else {
-    options = extend(sanitizeHtml.defaults, options);
-    if (options.parser) {
-      options.parser = extend(htmlParserDefaults, options.parser);
-    } else {
-      options.parser = htmlParserDefaults;
-    }
-  }
+  const options = {...sanitizeHtml.defaults, ...optionsInput, parser: htmlParserDefaults};
 
   // Tags that contain something other than HTML, or where discarding
   // the text when the tag is disallowed makes sense for other reasons.
   // If we are not allowing these tags, we should drop their content too.
   // For other tags you would drop the tag but keep its content.
-  var nonTextTagsArray = options.nonTextTags || [ 'script', 'style', 'textarea' ];
-  var allowedAttributesMap;
-  var allowedAttributesGlobMap;
+  const nonTextTagsArray = optionsInput.nonTextTags || [ 'script', 'style', 'textarea' ];
+  const allowedAttributesMap: Dictionary<string[]> = {};
+  const allowedAttributesGlobMap:  Dictionary<string[]> = {}
   if (options.allowedAttributes) {
-    allowedAttributesMap = {};
-    allowedAttributesGlobMap = {};
     each(options.allowedAttributes, function(attributes, tag) {
       allowedAttributesMap[tag] = [];
       var globRegex = [];
@@ -112,18 +62,6 @@ function sanitizeHtml(html, options, _recursing) {
       allowedAttributesGlobMap[tag] = new RegExp('^(' + globRegex.join('|') + ')$');
     });
   }
-  var allowedClassesMap = {};
-  each(options.allowedClasses, function(classes, tag) {
-    // Implicitly allows the class attribute
-    if (allowedAttributesMap) {
-      if (!has(allowedAttributesMap, tag)) {
-        allowedAttributesMap[tag] = [];
-      }
-      allowedAttributesMap[tag].push('class');
-    }
-
-    allowedClassesMap[tag] = classes;
-  });
 
   var transformTagsMap = {};
   var transformTagsAll;
@@ -184,7 +122,7 @@ function sanitizeHtml(html, options, _recursing) {
         }
       }
 
-      if ((options.allowedTags && options.allowedTags.indexOf(name) === -1) || (options.disallowedTagsMode === 'recursiveEscape' && !isEmptyObject(skipMap))) {
+      if ((options.allowedTags && options.allowedTags.indexOf(name) === -1) || (options.disallowedTagsMode === 'recursiveEscape' && !isEmpty(skipMap))) {
         skip = true;
         skipMap[depth] = true;
         if (options.disallowedTagsMode === 'discard') {
@@ -213,7 +151,7 @@ function sanitizeHtml(html, options, _recursing) {
             delete frame.attribs[a];
             return;
           }
-          var parsed;
+          var parsed: any;
           // check allowedAttributesMap for the element and attribute and modify the value
           // as necessary if there are specific values defined.
           var passedAllowedAttributesMapCheck = false;
@@ -288,27 +226,20 @@ function sanitizeHtml(html, options, _recursing) {
                     value.evil = true;
                   }
                 });
-                parsed = filter(parsed, function(v) {
+                parsed = parsed.filter(function(v) {
                   return !v.evil;
                 });
                 if (!parsed.length) {
                   delete frame.attribs[a];
                   return;
                 } else {
-                  value = srcset.stringify(filter(parsed, function(v) {
+                  value = srcset.stringify(parsed.filter(function(v) {
                     return !v.evil;
                   }));
                   frame.attribs[a] = value;
                 }
               } catch (e) {
                 // Unparseable srcset
-                delete frame.attribs[a];
-                return;
-              }
-            }
-            if (a === 'class') {
-              value = filterClasses(value, allowedClassesMap[name]);
-              if (!value.length) {
                 delete frame.attribs[a];
                 return;
               }
@@ -483,21 +414,49 @@ function sanitizeHtml(html, options, _recursing) {
 
     return !options.allowedSchemes || options.allowedSchemes.indexOf(scheme) === -1;
   }
-
-  function filterClasses(classes, allowed) {
-    if (!allowed) {
-      // The class attribute is allowed without filtering on this tag
-      return classes;
-    }
-    classes = classes.split(/\s+/);
-    return classes.filter(function(clss) {
-      return allowed.indexOf(clss) !== -1;
-    }).join(' ');
-  }
 }
 
 // Defaults are accessible to you so that you can use them as a starting point
 // programmatically if you wish
+
+interface IFrame {
+  tag: string;
+  attribs: { [index: string]: string };
+  text: string;
+  tagPosition: number;
+}
+
+
+type Tag = { tagName: string; attribs: Attributes; text?: string; };
+
+
+type Transformer = (tagName: string, attribs: Attributes) => Tag;
+
+type AllowedAttribute = string | { name: string; multiple?: boolean; values: string[] };
+
+type DisallowedTagsModes = 'discard' | 'escape' | 'recursiveEscape';
+
+type Attributes = { [attr: string]: string };
+
+interface SanitizeHtmlOptions {
+  allowedAttributes?: { [index: string]: AllowedAttribute[] } | boolean;
+  allowedStyles?:  { [index: string]: { [index: string]: RegExp[] } };
+  allowedClasses?: { [index: string]: string[] } | boolean;
+  allowedIframeHostnames?: string[];
+  allowIframeRelativeUrls?: boolean;
+  allowedSchemes?: string[] | boolean;
+  allowedSchemesByTag?: { [index: string]: string[] } | boolean;
+  allowedSchemesAppliedToAttributes?: string[];
+  allowProtocolRelative?: boolean;
+  allowedTags?: string[] | boolean;
+  textFilter?: (text: string) => string;
+  exclusiveFilter?: (frame: IFrame) => boolean;
+  nonTextTags?: string[];
+  selfClosing?: string[];
+  transformTags?: { [tagName: string]: string | Transformer };
+  parser?: ParserOptions;
+  disallowedTagsMode?: DisallowedTagsModes;
+}
 
 var htmlParserDefaults = {
   decodeEntities: true
@@ -520,7 +479,7 @@ sanitizeHtml.defaults = {
   allowedSchemes: [ 'http', 'https', 'ftp', 'mailto' ],
   allowedSchemesByTag: {},
   allowedSchemesAppliedToAttributes: [ 'href', 'src', 'cite' ],
-  allowProtocolRelative: true
+  allowProtocolRelative: true,
 };
 
 sanitizeHtml.simpleTransform = function(newTagName, newAttribs, merge) {
