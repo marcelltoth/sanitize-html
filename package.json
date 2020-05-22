@@ -8,7 +8,7 @@
     "dist/"
   ],
   "scripts": {
-    "build": "webpack",
+    "build": "sl-scripts bundle",
     "prepublishOnly": "npm run minify",
     "test": "npx eslint src && mocha test/test.js"
   },
@@ -34,6 +34,7 @@
     "@babel/cli": "^7.8.4",
     "@babel/core": "^7.8.4",
     "@babel/preset-env": "^7.8.4",
+    "@stoplight/scripts": "^8.2.0",
     "eslint": "^4.0.0",
     "eslint-config-apostrophe": "^3.1.0",
     "eslint-config-standard": "^11.0.0",
@@ -43,10 +44,7 @@
     "eslint-plugin-standard": "^3.1.0",
     "lodash": "^4.17.15",
     "mocha": "^7.1.2",
-    "uglify-js": "^3.8.0",
-    "webpack": "^4.43.0",
-    "webpack-bundle-analyzer": "^3.7.0",
-    "webpack-cli": "^3.3.11"
+    "typescript": "^3.9.3"
   },
   "peerDependencies": {
     "lodash": "^4.17.15"
